@@ -7,7 +7,7 @@
 本專案支援同時輸出 **英文 Prompt** (用於影片生成模型) 與 **繁體/簡體中文 Prompt** (用於內容理解)，讓你在設計動態轉場時能精準掌控 AI 的生成細節。
 
 ## ✨ 功能特點
-* **🖼️ 多模態視覺分析**: 獨特的雙圖輸入機制，讓 LLM 能理解從第一張圖到第二張圖之間的動態演變趨勢。
+* **🖼️ 多模態視覺分析**: 獨特的雙圖(或單圖)輸入機制，讓 LLM 能理解從第一張圖到第二張圖之間的動態演變趨勢。
 * **🎬 전문電影級描述**: 自動針對運鏡方式 (Camera Movement)、光影轉換 (Lighting Transitions) 與環境氛圍進行細節擴充。
 * **🎭 角色導向生成**: 透過 `system_role_instruction` 隨意定義 LLM 的專業身分（如：電影導演、MV 導演、特效專家）。
 * **🌓 三語輸出機制**: 同時生成英文、繁體中文、簡體中文，兼顧繪圖實用性與視覺理解。
@@ -18,7 +18,7 @@
 1. 進入您的 `ComfyUI/custom_nodes` 目錄。
 2. 使用 Git 下載本專案：
    ```bash
-   git clone https://github.com/JetterTW/video_prompt_architect.git
+   git clone https://github.com/JetterTW/ComfyUI-Video-Prompt-Architect.git
    
 3. 進入資料夾並確保已安裝依賴套件：
    ```bash
@@ -30,7 +30,7 @@
 | 參數 | 類型 | 預設值 | 說明 |
 | :--- | :--- | :--- | :--- |
 | `start_image` | IMAGE | - | 影片起始幀的圖片。 |
-| `end_image` | IMAGE | - | 影片結束幀的圖片。 |
+| `end_image` | IMAGE | - | 影片結束幀的圖片(可省略)。 |
 | `user_description` | STRING | `A sunset to starry night` | 您輸入的原始轉場構想。 |
 | `system_role_instruction` | STRING | `You are a professional...` | 設定 LLM 的角色與任務指令。 |
 | `api_url` | STRING | `http://127.0.0.1:1234/v1/chat/completions` | LLM API 的端點網址。 |
