@@ -3,14 +3,13 @@ import requests
 import json
 import base64
 import io
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 class VideoPromptArchitect:
     """
     Video Prompt Architect: 支援雙圖轉場或單圖擴充的影片提示詞生成節點。
     """
-
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -23,9 +22,10 @@ class VideoPromptArchitect:
                 "api_key": ("STRING", {"default": "not-needed"}),
                 "max_new_tokens": ("INT", {"default": 2048, "min": 1, "max": 8192}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0, "step": 0.1}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
             },
             "optional": {
-                "end_image": ("IMAGE",),  # 將尾幀設為選填
+                "end_image": ("IMAGE",),
             }
         }
 
@@ -35,29 +35,23 @@ class VideoPromptArchitect:
     CATEGORY = "VideoProduction/PromptEngine"
 
     def tensor_to_base64(self, image_tensor):
-        """將 ComfyUI Tensor 轉換為 Base64 JPEG 字串"""
         img_np = (image_tensor[0].cpu().numpy() * 255).astype(np.uint8)
         img = Image.fromarray(img_np)
         buffered = io.BytesIO()
         img.save(buffered, format="JPEG", quality=85)
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-    def execute_architect(self, start_image, user_description, system_role_instruction, 
-                          api_url, model_name, api_key, max_new_tokens, temperature, end_image=None):
+    def execute_architect(self, start_image, user_description, system_role_instruction,
+                          api_url, model_name, api_key, max_new_tokens, temperature, seed, end_image=None):
         
-        # 1. 處理起始圖片 (必備)
         try:
             start_b64 = self.tensor_to_base64(start_image)
         except Exception as e:
             return (f"Start Image Error: {str(e)}", "", "")
 
-        # 2. 判斷是否提供尾幀圖片並決定 Task 指令
-        image_content = [
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{start_b64}"}}
-        ]
-
+        image_content = [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{start_b64}"}}]
+        
         if end_image is not None:
-            # 有提供尾幀：執行轉場分析
             try:
                 end_b64 = self.tensor_to_base64(end_image)
                 image_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{end_b64}"}})
@@ -65,10 +59,11 @@ class VideoPromptArchitect:
             except Exception as e:
                 return (f"End Image Error: {str(e)}", "", "")
         else:
-            # 沒有提供尾幀：執行單圖擴充
             task_instruction = "Analyze the provided Start Image and expand it into a highly detailed cinematic scene description, focusing on atmosphere and visual depth."
 
-        # 3. 構建最終 Master Prompt
+        # 用 seed 擾動 prompt，確保每次輸入都不一樣
+        noise = f" [ID:{seed}]"
+
         master_prompt = f"""
 {system_role_instruction}
 
@@ -77,17 +72,20 @@ TASK:
 
 USER'S CORE CONCEPT: "{user_description}"
 
+IMPORTANT RULE:
+Respond ONLY with a raw JSON object. 
+DO NOT include any reasoning, internal monologue, or any text before or after the JSON. 
+No tags, no explanation, just the JSON.
+
 OUTPUT FORMAT:
-You must respond ONLY with a valid JSON object. Do not include any conversational text.
-The JSON must follow this exact structure:
 {{
-    "en": "High-quality English prompt for video generation models",
-    "tw": "繁體中文描述",
-    "cn": "簡體中文描述"
+    "en": "English prompt",
+    "tw": "繁體中文",
+    "cn": "简体中文"
 }}
+{noise}
 """
 
-        # 4. 準備 API Payload
         payload = {
             "model": model_name,
             "messages": [
@@ -95,13 +93,14 @@ The JSON must follow this exact structure:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": master_prompt},
-                        *image_content  # 將圖片內容解包放入列表
+                        *image_content
                     ]
                 }
             ],
             "max_tokens": max_new_tokens,
             "temperature": temperature,
-            "response_format": { "type": "json_object" } 
+            "response_format": { "type": "json_object" },
+            "seed": seed
         }
 
         headers = {
@@ -109,22 +108,32 @@ The JSON must follow this exact structure:
             "Authorization": f"Bearer {api_key}"
         }
 
-        # 5. 發送 API 請求
         try:
             response = requests.post(api_url, headers=headers, json=payload, timeout=180)
             response.raise_for_status()
             res_data = response.json()
-            
             content_str = res_data['choices'][0]['message']['content']
-            content_json = json.loads(content_str)
+
+            # 這裡我們用最簡單的字串方法，只抓取 { 到 } 之間的內容
+            # 這能有效避開任何可能出現在 JSON 外面的廢話
+            start_idx = content_str.find('{')
+            end_idx = content_str.rfind('}')
             
-            return (
-                content_json.get("en", ""),
-                content_json.get("tw", ""),
-                content_json.get("cn", "")
-            )
+            if start_idx != -1 and end_idx != -1:
+                json_str = content_str[start_idx:end_idx+1]
+                content_json = json.loads(json_str)
+                return (
+                    content_json.get("en", ""),
+                    content_json.get("tw", ""),
+                    content_json.get("cn", "")
+                )
+            else:
+                raise ValueError("No JSON object found in response")
 
         except Exception as e:
-            error_msg = f"API/Parsing Error: {str(e)}"
+            error_msg = f"Error: {str(e)}"
             print(error_msg)
             return (error_msg, error_msg, error_msg)
+
+NODE_CLASS_MAPPINGS = {"VideoPromptArchitect": VideoPromptArchitect}
+NODE_DISPLAY_NAME_MAPPINGS = {"VideoPromptArchitect": "Video Prompt Architect"}
