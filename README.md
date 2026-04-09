@@ -54,6 +54,9 @@
 2. **Generation**: 將 **prompt_en** 輸出端連接至影片生成節點 (如 Runway/Luma API 或相關 ComfyUI 影片節點)。
 3. **Review**: 將 **prompt_zh_tw** 輸出端連接至 `Show Text` 節點，確認轉場描述（如運鏡、光影）是否符合預期。
 
+## 系統提示詞
+在 [SystemPrompt.md] 中有提供幾個常用的系統提示詞。
+
 ## ⚠️ 注意事項
 * **模型支援**: 務必使用支援 **Vision (多模態)** 功能的模型（例如 Gemma 4, Llama-3-Vision 等），否則節點無法讀取圖片內容。
 * **URL 格式**: 請確保 API URL 指向的是 `/chat/completions` 結尾的完整路徑。
