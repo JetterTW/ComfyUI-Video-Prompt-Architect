@@ -100,6 +100,9 @@ OUTPUT FORMAT:
             "max_tokens": max_new_tokens,
             "temperature": temperature,
             "response_format": { "type": "json_object" },
+            "chat_template_kwargs": {
+                "enable_thinking": False
+            },    
             "seed": seed
         }
 
